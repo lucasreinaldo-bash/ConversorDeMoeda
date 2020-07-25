@@ -1,111 +1,234 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:http/http.dart' as http;
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-void main() => runApp(MyApp());
+//Library para converter os dados para json
+import 'dart:convert';
 
-class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
+const request = "https://www.mercadobitcoin.net/api/BTC/ticker";
+const requestTwo = "https://www.mercadobitcoin.net/api/BTC/ticker";
+
+void main() async {
+  runApp(MaterialApp(
+    home: Home(),
+    theme: ThemeData(
+      hintColor: Colors.black,
+      primaryColor: Colors.white,
+    ),
+  ));
+}
+
+Future<Map> getData() async {
+  http.Response response = await http.get(request);
+  return json.decode(response.body);
+}
+
+class Home extends StatefulWidget {
+  @override
+  _HomeState createState() => _HomeState();
+}
+
+class _HomeState extends State<Home> {
+//Criando controladores
+
+  WebViewController _controller;
+
+  final realController = TextEditingController();
+  final dolarController = TextEditingController();
+  final euroController = TextEditingController();
+  final bitcoinController = TextEditingController();
+
+  //Instanciando moedas
+  double dolar;
+  double euro;
+  double bitcoin;
+
+  void _clearAll() {
+    realController.text = "";
+    dolarController.text = "";
+    euroController.text = "";
+  }
+
+  void _realChanged(String text) {
+    if (text.isEmpty) {
+      _clearAll();
+
+      return;
+    }
+
+    double real = double.parse(text);
+    dolarController.text = (real / dolar).toStringAsFixed(2);
+    euroController.text = (real / euro).toStringAsFixed(2);
+    bitcoinController.text = (real / bitcoin).toStringAsFixed(2);
+  }
+
+  void _dolarChanged(String text) {
+    if (text.isEmpty) {
+      _clearAll();
+
+      return;
+    }
+
+    double dolar = double.parse(text);
+    this.dolar;
+
+    realController.text = (dolar * this.dolar).toStringAsFixed(2);
+    euroController.text = (this.dolar * dolar / euro).toStringAsFixed(2);
+  }
+
+  void _euroChanged(String text) {
+    if (text.isEmpty) {
+      _clearAll();
+
+      return;
+    }
+
+    double euro = double.parse(text);
+    this.euro;
+
+    realController.text = (euro * this.euro).toStringAsFixed(2);
+    dolarController.text = (euro * this.euro / dolar).toStringAsFixed(2);
+    print(this.euro);
+  }
+
+  void _bitcoinChanged(String text) {}
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Conversor de Moedas"),
+        backgroundColor: Colors.lightBlueAccent,
+        centerTitle: true,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      body: FutureBuilder<Map>(
+          future: getData(),
+          builder: (context, snapshot) {
+            switch (snapshot.connectionState) {
+              case ConnectionState.none:
+                return Center(
+                  child: Text("Carregando Dados!"),
+                );
+              case ConnectionState.waiting:
+                return Center(
+                  child: Text("Carregando Dados!"),
+                );
+              default:
+                if (snapshot.hasError) {
+                  return Center(
+                      child: Text(
+                    "Erro ao carregar Dados :(",
+                    style: TextStyle(
+                      color: Colors.lightBlueAccent,
+                      fontSize: 25.0,
+                    ),
+                    textAlign: TextAlign.center,
+                  ));
+                } else {
+                  String bitcoins = snapshot.data["ticker"]["last"];
+                  String bitcoinsMax = snapshot.data["ticker"]["high"];
+                  String bitcoinsLow = snapshot.data["ticker"]["low"];
+
+                  double btcc = double.parse(bitcoins);
+                  double btcLow = double.parse(bitcoinsLow);
+                  double btcHigh = double.parse(bitcoinsLow);
+                  String bitcoinLastPrice = btcc.toStringAsFixed(2);
+                  String bitcoinLowPrice = btcLow.toStringAsFixed(2);
+                  String bitcoinHighPrice = btcHigh.toStringAsFixed(2);
+
+                  print(bitcoins);
+
+                  return SingleChildScrollView(
+                      padding: EdgeInsets.all(10.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          _buildStackBitcoin(),
+                          Divider(),
+                          _buildCard(bitcoinLastPrice, bitcoinLowPrice,
+                              bitcoinHighPrice),
+                          Divider(),
+                          _buildStackEtherum(),
+                          Center(
+                            child: Text("Preço do Bitcoin: R\$" +
+                                btcc.toStringAsFixed(2)),
+                          ),
+                        ],
+                      ));
+                }
+            }
+          }),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
+Widget buildTextField(String label, String prefix,
+    TextEditingController moedaController, Function f) {
+  return TextField(
+    decoration: InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: Colors.blueAccent),
+      border: OutlineInputBorder(),
+      prefixText: prefix,
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  _MyHomePageState createState() => _MyHomePageState();
+//        hintText: "Insira o valor que você deseja converter"
+    ),
+    controller: moedaController,
+    onChanged: f,
+    keyboardType: TextInputType.number,
+  );
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+Widget _buildCard(String lastPrice, String lowPrice, String highPrice) =>
+    SizedBox(
+      height: 100,
+      child: Card(
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.display1,
+          children: [
+            ListTile(
+              title: Text('Último Preço:R\$$lastPrice',
+                  style: TextStyle(fontWeight: FontWeight.w500, fontSize: 20)),
+              subtitle:
+                  Text('Menor valor: R\$$lowPrice\nMaior valor: R\$$highPrice'),
+              leading: Icon(
+                Icons.attach_money,
+                color: Colors.blue[500],
+              ),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
-  }
-}
+
+Widget _buildStackBitcoin() => Stack(
+      alignment: const Alignment(0.6, 0.6),
+      children: [
+        Center(
+          child: CircleAvatar(
+            backgroundColor: Colors.amber,
+            backgroundImage: AssetImage('assets/images/bitcoin.png'),
+            radius: 100,
+          ),
+        )
+      ],
+    );
+Widget _buildStackEtherum() => Stack(
+      alignment: const Alignment(0.6, 0.6),
+      children: [
+        Center(
+          child: Container(
+            child: Container(
+              padding: EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                border: Border.all(width: 1, color: Colors.black38),
+                borderRadius: const BorderRadius.all(const Radius.circular(8)),
+              ),
+              margin: const EdgeInsets.all(4),
+              child: Image.asset('assets/images/ethereum.png'),
+            ),
+          ),
+        )
+      ],
+    );
